@@ -132,16 +132,6 @@ if [ ! -d "$SOURCE_DIR" ]; then
     exit 1
 fi
 
-# Checks and creates the target directory if it does not exist
-if [ ! -d "$TARGET_DIR" ]; then
-    mkdir -p "$TARGET_DIR"
-    if [ $? -eq 0 ]; then
-        echo "The directory \"$TARGET_DIR\" has been created."
-    else
-        echo "Error: The directory \"$TARGET_DIR\" could not be created."
-    fi
-fi
-
 # Determines the number of CPU cores to optimize parallel processing
 N_CORES=$(nproc)
 
