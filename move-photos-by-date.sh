@@ -6,15 +6,9 @@
 TARGET_DIR=""
 SOURCE_DIR=""
 PATTERN=""
+EXCLUDE_DIRS=""
 
-OPTSTRING=":t:s:p:"
-
-# Check if no options were provided
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 -p <Pattern: y-m-d/y-m> -s <SourceDirectoryPath> -t <TargetDirectoryPath>"
-    echo "Example: $0 -p y-m-d -s /path/to/source -t /path/to/target"
-    exit 1
-fi
+OPTSTRING=":t:s:p:e:"
 
 while getopts ${OPTSTRING} opt; do
   case ${opt} in
@@ -26,6 +20,9 @@ while getopts ${OPTSTRING} opt; do
       ;;
     p)
       PATTERN="${OPTARG}"
+      ;;
+    e)
+      EXCLUDE_DIRS="${OPTARG}"
       ;;
     :)
       echo "Option -${OPTARG} requires an argument."
@@ -39,8 +36,10 @@ while getopts ${OPTSTRING} opt; do
 done
 
 # Validate required parameters
-if [ -z "${TARGET_DIR}" ] || [ -z "${SOURCE_DIR}" ] || [ -z "${PATTERN}" ]; then
-    echo "Error: All options -t (target directory), -s (source directory), and -p (pattern) are required."
+if [ -z "${TARGET_DIR}" ] || [ -z "${SOURCE_DIR}" ] || [ -z "${PATTERN}" ] || [ $# -eq 0 ]; then
+    echo "Usage: $0 -p <Pattern: y-m-d/y-m> -s <SourceDirectoryPath> -t <TargetDirectoryPath> [-e <ExcludeDirectories>]"
+    echo "Example: $0 -p y-m-d -s /path/to/source -t /path/to/target -e @eaDir,tmp"
+    echo "Note: The parameter -e <ExcludeDirectories> is optional."
     exit 1
 fi
 
@@ -111,6 +110,22 @@ export MOVEFILE
 export NOT_MOVE
 export PATTERN
 
+# Constructs a string to exclude directories from the search
+EXCLUDE_STRING=""
+if [ ! -z "$EXCLUDE_DIRS" ]; then
+    IFS=',' read -ra ADDR <<< "$EXCLUDE_DIRS" # Splits the EXCLUDE_DIRS variable into an array
+    if [ ${#ADDR[@]} -gt 0 ]; then
+        # Constructs the exclusion string for find, starting with the first directory
+        EXCLUDE_STRING="-name ${ADDR[0]}"
+        for i in "${ADDR[@]:1}"; do
+            # Adds additional directories to the exclusion
+            EXCLUDE_STRING="$EXCLUDE_STRING -o -name $i"
+        done
+        # Encloses the exclusion string in parentheses and appends it for the find command
+        EXCLUDE_STRING="( $EXCLUDE_STRING ) -prune -o"
+    fi
+fi
+
 # Checks if the source directory exists
 if [ ! -d "$SOURCE_DIR" ]; then
     echo "Error: The directory \"$SOURCE_DIR\" does not exist."
@@ -131,7 +146,10 @@ fi
 N_CORES=$(nproc)
 
 # Uses find and xargs to process files in parallel based on the number of CPU cores
-find "$SOURCE_DIR" -type f -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+
+find "$SOURCE_DIR" $EXCLUDE_STRING  -type f -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+#find "$SOURCE_DIR" -type f -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+
 
 # Summarizes the results of the file processing
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
