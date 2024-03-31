@@ -2,16 +2,51 @@
 
 # This script organizes images into directories based on their EXIF creation date.
 
-# Checks if the correct number of arguments is passed to the script
-if [ $# -lt 3 ]; then
-    echo "Usage: $0 <Pattern: y-m-d/y-m> <SourceDirectoryPath> <TargetDirectoryPath>"
-    echo "Example: $0 y-m-d /path/to/folder/Source /path/to/folder/Target"
+# Initialize variables
+TARGET_DIR=""
+SOURCE_DIR=""
+PATTERN=""
+
+OPTSTRING=":t:s:p:"
+
+# Check if no options were provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 -p <Pattern: y-m-d/y-m> -s <SourceDirectoryPath> -t <TargetDirectoryPath>"
+    echo "Example: $0 -p y-m-d -s /path/to/source -t /path/to/target"
     exit 1
 fi
 
-# Validates the date pattern argument to ensure it's either 'y-m-d' or 'y-m'
-if [[ $1 != "y-m-d" && $1 != "y-m" ]]; then
-    echo "Error: The first parameter must be either 'y-m-d' or 'y-m'."
+while getopts ${OPTSTRING} opt; do
+  case ${opt} in
+    t)
+      TARGET_DIR="${OPTARG}"
+      ;;
+    s)
+      SOURCE_DIR="${OPTARG}"
+      ;;
+    p)
+      PATTERN="${OPTARG}"
+      ;;
+    :)
+      echo "Option -${OPTARG} requires an argument."
+      exit 1
+      ;;
+    ?)
+      echo "Invalid option: -${OPTARG}."
+      exit 1
+      ;;
+  esac
+done
+
+# Validate required parameters
+if [ -z "${TARGET_DIR}" ] || [ -z "${SOURCE_DIR}" ] || [ -z "${PATTERN}" ]; then
+    echo "Error: All options -t (target directory), -s (source directory), and -p (pattern) are required."
+    exit 1
+fi
+
+# Validate the pattern
+if [[ $PATTERN != "y-m-d" && $PATTERN != "y-m" ]]; then
+    echo "Error: The pattern must be either '-p y-m-d' or '-p y-m'."
     exit 2
 fi
 
@@ -60,11 +95,6 @@ process_file() {
         echo "The file $image could not be processed"
     fi
 }
-
-# Initializes variables with the script's arguments
-PATTERN=$1
-SOURCE_DIR=$2
-TARGET_DIR=$3
 
 # Initializes or clears files for logging actions
 MOVEFILE=move.sh
