@@ -109,7 +109,7 @@ export MOVEFILE
 export NOT_MOVE
 export PATTERN
 
-# Constructs a string to exclude directories from the search
+# Construct find command's string to exclude directories from the search
 EXCLUDE_STRING=""
 if [ ! -z "$EXCLUDE_DIRS" ]; then
     IFS=',' read -ra ADDR <<< "$EXCLUDE_DIRS" # Splits the EXCLUDE_DIRS variable into an array
@@ -118,21 +118,25 @@ if [ ! -z "$EXCLUDE_DIRS" ]; then
         EXCLUDE_STRING="-name '${ADDR[0]}'"
         for i in "${ADDR[@]:1}"; do
             # Adds additional directories to the exclusion
-            EXCLUDE_STRING="$EXCLUDE_STRING -o -name '$i'"
+            EXCLUDE_STRING="$EXCLUDE_STRING -o -name $i"
         done
         # Encloses the exclusion string in parentheses and appends it for the find command
-        EXCLUDE_STRING="( $EXCLUDE_STRING ) -prune -o"
+        EXCLUDE_STRING="-type d \( $EXCLUDE_STRING \) -prune -o"
     fi
 fi
 
 # Construct find command's include string for file extensions
 INCLUDE_STRING=""
 if [ ! -z "$FILE_EXTENSIONS" ]; then
-    IFS=',' read -ra EXT <<< "$FILE_EXTENSIONS"
-    for ext in "${EXT[@]}"; do
-        INCLUDE_STRING="$INCLUDE_STRING -o -iname *.$ext"
-    done
-    INCLUDE_STRING="( ${INCLUDE_STRING:3} )"
+    IFS=',' read -ra ADDR <<< "$FILE_EXTENSIONS" # Splits the FILE_EXTENSIONS variable into an array
+    if [ ${#ADDR[@]} -gt 0 ]; then
+        INCLUDE_STRING="-iname '*.${ADDR[0]}'"
+        for i in "${ADDR[@]:1}"; do
+            INCLUDE_STRING="$INCLUDE_STRING -o -iname '*.$i'"
+        done
+        # Encloses the exclusion string in parentheses and appends it for the find command
+        INCLUDE_STRING="-type f \( $INCLUDE_STRING \)"
+    fi
 fi
 
 # Validate source directory existence
@@ -145,7 +149,7 @@ fi
 N_CORES=$(nproc)
 
 # Use find and xargs to process files in parallel, considering file extensions
-find "$SOURCE_DIR" $EXCLUDE_STRING $INCLUDE_STRING -type f -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+eval find "$SOURCE_DIR" $EXCLUDE_STRING $INCLUDE_STRING -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
 # Summarize and report the outcome
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
