@@ -7,9 +7,10 @@ TARGET_DIR=""
 SOURCE_DIR=""
 PATTERN=""
 EXCLUDE_DIRS=""
+FILE_EXTENSIONS=""
 
 # Define option string for getopts
-OPTSTRING=":t:s:p:e:"
+OPTSTRING=":t:s:p:e:f:"
 
 # Process input options
 while getopts ${OPTSTRING} opt; do
@@ -26,6 +27,9 @@ while getopts ${OPTSTRING} opt; do
     e) # Directories to exclude from the search
       EXCLUDE_DIRS="${OPTARG}"
       ;;
+    f) # File extensions to include
+      FILE_EXTENSIONS="${OPTARG}"
+      ;;
     :) # Missing option argument
       echo "Option -${OPTARG} requires an argument."
       exit 1
@@ -39,7 +43,7 @@ done
 
 # Check for required parameters and print usage if missing
 if [ -z "${TARGET_DIR}" ] || [ -z "${SOURCE_DIR}" ] || [ -z "${PATTERN}" ] || [ $# -eq 0 ]; then
-    echo "Usage: $0 -p <Pattern: y-m-d/y-m> -s <SourceDirectoryPath> -t <TargetDirectoryPath> [-e <ExcludeDirectories>]"
+    echo "Usage: $0 -p <Pattern: y-m-d/y-m> -s <SourceDirectoryPath> -t <TargetDirectoryPath> [-e <ExcludeDirectories>] [-f <FileExtensions>]"
     exit 1
 fi
 
@@ -81,13 +85,13 @@ process_file() {
 
         # Check for file existence and log accordingly
         if [ -f "$image_target" ]; then
-            echo "# Exists in target: \"$image\"" >> $NOT_MOVE
+            echo "# File exists in target: \"$image\"" >> $NOT_MOVE
         else
             echo "mv \"$image\" \"$image_target\"" >> $MOVEFILE
         fi
     else
         # Log unprocessable files
-        echo "# Not an image: \"$image\"" >> "$NOT_MOVE"
+        echo "# File is an image: \"$image\"" >> "$NOT_MOVE"
     fi
 }
 
@@ -101,19 +105,34 @@ echo -n "" > "$NOT_MOVE"
 # Export variables and functions for subprocesses
 export -f process_file
 export TARGET_DIR
-export SOURCE_DIR
 export MOVEFILE
 export NOT_MOVE
 export PATTERN
 
-# Construct find command's exclude string
+# Constructs a string to exclude directories from the search
 EXCLUDE_STRING=""
 if [ ! -z "$EXCLUDE_DIRS" ]; then
-    IFS=',' read -ra ADDR <<< "$EXCLUDE_DIRS"
-    for i in "${!ADDR[@]}"; do
-        EXCLUDE_STRING="$EXCLUDE_STRING -o -name ${ADDR[i]}"
+    IFS=',' read -ra ADDR <<< "$EXCLUDE_DIRS" # Splits the EXCLUDE_DIRS variable into an array
+    if [ ${#ADDR[@]} -gt 0 ]; then
+        # Constructs the exclusion string for find, starting with the first directory
+        EXCLUDE_STRING="-name '${ADDR[0]}'"
+        for i in "${ADDR[@]:1}"; do
+            # Adds additional directories to the exclusion
+            EXCLUDE_STRING="$EXCLUDE_STRING -o -name '$i'"
+        done
+        # Encloses the exclusion string in parentheses and appends it for the find command
+        EXCLUDE_STRING="( $EXCLUDE_STRING ) -prune -o"
+    fi
+fi
+
+# Construct find command's include string for file extensions
+INCLUDE_STRING=""
+if [ ! -z "$FILE_EXTENSIONS" ]; then
+    IFS=',' read -ra EXT <<< "$FILE_EXTENSIONS"
+    for ext in "${EXT[@]}"; do
+        INCLUDE_STRING="$INCLUDE_STRING -o -iname *.$ext"
     done
-    EXCLUDE_STRING="( $EXCLUDE_STRING ) -prune -o"
+    INCLUDE_STRING="( ${INCLUDE_STRING:3} )"
 fi
 
 # Validate source directory existence
@@ -125,8 +144,8 @@ fi
 # Optimize processing using available CPU cores
 N_CORES=$(nproc)
 
-# Use find and xargs to process files in parallel
-find "$SOURCE_DIR" $EXCLUDE_STRING  -type f -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+# Use find and xargs to process files in parallel, considering file extensions
+find "$SOURCE_DIR" $EXCLUDE_STRING $INCLUDE_STRING -type f -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
 # Summarize and report the outcome
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
