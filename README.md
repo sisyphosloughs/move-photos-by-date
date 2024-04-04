@@ -43,10 +43,10 @@ Features:
 4. Change to the folder containing the script.
 5. Create the command to organize the photos:  
    `./move-photos-by-date.sh -s <Sourcefolder> -t <Targetfolder> -p <Pattern> [-e <Excludedfolders>] [-f <FileExtensions>]`  
-   > [!TIP]
-   > - `<Pattern>` must be either `y-m-d` or `y-m`, depending on how you want to organize the photos.
-   > - `<Excludedfolders>` is a comma-separated list of folders you want to exclude.
-   > - `<FileExtensions>` is a comma-separated list of file extensions to consider (e.g., `jpg,png`).
+> [!TIP]
+> - `<Pattern>` must be either `y-m-d` or `y-m`, depending on how you want to organize the photos.
+> - `<Excludedfolders>` is a comma-separated list of folders you want to exclude.
+> - `<FileExtensions>` is a comma-separated list of file extensions to consider (e.g., `jpg,png`).
 
 6. Execute the command.
 
@@ -84,8 +84,8 @@ If only a few folders exist in the source folder, you can manually check them wi
   ```sh
   find /your/old/folder/ -type f | while read -r file; do echo "rm \"$file\""; done > rest.sh
   ```
-  > [!NOTE]
-  > This command will not delete the files.
+> [!NOTE]
+> This command will not delete the files.
 
 2. Review the `rest.sh` file. Remove the lines with files, you don't want to delete.
 3. Make the script executable: `chmod +x rest.sh`.
