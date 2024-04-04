@@ -91,8 +91,8 @@ process_file() {
             local target_dir="$TARGET_BASE_DIR/$year/$month/"
         fi
 
-        # Uncomment to enable directory creation
-        # mkdir -p "$target_dir"
+        # Create direcectory
+        mkdir -p "$target_dir"
         
         local image_base=$(basename "$image")
         local image_target="$target_dir/$image_base"
@@ -173,5 +173,5 @@ eval find "$SOURCE_DIR" $EXCLUDE_STRING $INCLUDE_STRING -print0 | xargs -0 -P "$
 # Summarize and report the outcome
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
 COUNT_NOT_FOUND=$(wc -l < "$NOT_MOVE")
-echo "$COUNT_FOUND files found that can be moved."
-echo "$COUNT_NOT_FOUND files found that cannot be moved."
+echo "$COUNT_FOUND files found that can be moved (see move.sh)."
+echo "$COUNT_NOT_FOUND files found that cannot be moved (see cannot_move.sh)."
