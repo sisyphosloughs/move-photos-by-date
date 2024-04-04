@@ -146,12 +146,16 @@ fi
 INCLUDE_STRING=""
 if [ ! -z "$FILE_EXTENSIONS" ]; then
     IFS=',' read -ra ADDR <<< "$FILE_EXTENSIONS" # Splits the FILE_EXTENSIONS variable into an array
-    for i in "${ADDR[@]}"; do
-        # Constructs the inclusion string for find
-        INCLUDE_STRING="$INCLUDE_STRING -o -iname '*.$i'"
-    done
-    # Encloses the inclusion string in parentheses for the find command
-    INCLUDE_STRING="-type f \( $INCLUDE_STRING \)"
+    if [ ${#ADDR[@]} -gt 0 ]; then
+        # Constructs the exclusion string for find, starting with the first directory
+        INCLUDE_STRING="-iname '*.${ADDR[0]}'"
+        for i in "${ADDR[@]:1}"; do
+            # Adds additional directories to the exclusion
+            INCLUDE_STRING="$INCLUDE_STRING -o -iname '*.$i'"
+        done
+        # Encloses the exclusion string in parentheses and appends it for the find command
+        INCLUDE_STRING="-type f \( $INCLUDE_STRING \)"
+    fi
 fi
 
 # Validate source directory existence
