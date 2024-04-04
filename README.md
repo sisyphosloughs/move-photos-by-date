@@ -43,10 +43,10 @@ Features:
 4. Change to the directory containing the script.
 5. Create the command to organize the photos:  
    `./move-photos-by-date.sh -s <SourceDirectory> -t <TargetDirectory> -p <Pattern> [-e <ExcludedDirectories>] [-f <FileExtensions>]`  
-   > [!TIP]
-   > - `<Pattern>` must be either `y-m-d` or `y-m`, depending on how you want to organize the photos.
-   > - `<ExcludedDirectories>` is a comma-separated list of directories you want to exclude.
-   > - `<FileExtensions>` is a comma-separated list of file extensions to consider (e.g., `jpg,png`).
+> [!TIP]
+> - `<Pattern>` must be either `y-m-d` or `y-m`, depending on how you want to organize the photos.
+> - `<ExcludedDirectories>` is a comma-separated list of directories you want to exclude.
+> - `<FileExtensions>` is a comma-separated list of file extensions to consider (e.g., `jpg,png`).
 
 6. Execute the command.
 
