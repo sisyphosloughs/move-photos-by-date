@@ -1,4 +1,4 @@
-# Move-Photos-by-Date
+# Move Photos by Date
 
 This script sorts photos into folders organized by their [EXIF](#what-are-EXIF-data) creation date.
 
