@@ -134,12 +134,16 @@ echo -n "" > "$NOT_MOVE"
 EXCLUDE_STRING=""
 if [ ! -z "$EXCLUDE_DIRS" ]; then
     IFS=',' read -ra ADDR <<< "$EXCLUDE_DIRS" # Splits the EXCLUDE_DIRS variable into an array
-    for i in "${ADDR[@]}"; do
-        # Constructs the exclusion string for find
-        EXCLUDE_STRING="$EXCLUDE_STRING -o -name $i"
-    done
-    # Encloses the exclusion string in parentheses and appends it for the find command
-    EXCLUDE_STRING="-type d \( $EXCLUDE_STRING \) -prune -o"
+    if [ ${#ADDR[@]} -gt 0 ]; then
+        # Constructs the exclusion string for find, starting with the first directory
+        EXCLUDE_STRING="-name '${ADDR[0]}'"
+        for i in "${ADDR[@]:1}"; do
+            # Adds additional directories to the exclusion
+            EXCLUDE_STRING="$EXCLUDE_STRING -o -name '$i'"
+        done
+        # Encloses the exclusion string in parentheses and appends it for the find command
+        EXCLUDE_STRING="-type d \( $EXCLUDE_STRING \) -prune -o"
+    fi
 fi
 
 # Construct find command's include string for file extensions
