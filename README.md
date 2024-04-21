@@ -34,7 +34,7 @@ Features:
 > - Create a backup of your data before running the script.
 > - Test the script with a small set of photos to ensure it works as expected.
 
-### Organizing Photos
+### Prepare the organization
 
 1. Determine the source folder containing your photos.
 2. Determine the target folder where the photos will be organized.
@@ -128,3 +128,5 @@ On most Linux distributions, you can install `exiftool` via your package manager
 - [Photo-Sidecar-Cleaner: My script to find and remove orphaned sidecar files](https://github.com/sisyphosloughs/photo-sidecar-cleaner)
 - [Exif (Wikipedia)](https://en.wikipedia.org/wiki/Exif)
 - [Sidecar file (Wikipedia)](https://en.wikipedia.org/wiki/Sidecar_file)
+- [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/about)
+- [ExifTool by Phil Harvey](https://exiftool.org/)
