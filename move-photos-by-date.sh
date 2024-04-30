@@ -75,10 +75,10 @@ process_file() {
 
         if [ -f "$target_file_path" ]; then
             # Check if the file exists at the target
-            echo "# File already exists at target: \"$source_file_path\"" >> "$NOT_MOVE"
-        elif grep -qw "$target_file_path" "$MOVEFILE"; then
-            # Check if the full target path is already listed in the move file, using the source file path in the message
-            echo "# Source file already listed: \"$source_file_path\"" >> "$NOT_MOVE"
+            echo "# File already exists at target:" >> "$NOT_MOVE"
+            echo "\"$source_file_path\" # source" >> "$NOT_MOVE"
+            echo "\"$target_file_path\" # target" >> "$NOT_MOVE"
+            echo "" >> "$NOT_MOVE"
         else
             # If neither condition is met, write the move command to $MOVEFILE
             echo "mv \"$source_file_path\" \"$target_file_path\"" >> "$MOVEFILE"
@@ -91,7 +91,17 @@ process_file() {
     # Extract EXIF creation date and organize based on the pattern
     if exiftool "$image" &> /dev/null; then
 
+        # Extract the original date the photo was taken from its metadata (year, month, day) and store these values in variables.
         read year month day <<< $(exiftool -d "%Y %m %d" -DateTimeOriginal "$image" | awk '/Date\/Time Original/ {print $4, $5, $6}')   
+        
+        # Check if the year variable has a value
+        if [ -z "$year" ]; then
+            # If year is empty, log the error with the image filename to a file and exit the function
+            echo "# No creation date found:" >> $NOT_MOVE
+            echo "\"$image\"" >> $NOT_MOVE
+            echo "" >> $NOT_MOVE
+            return
+        fi
 
         # Create target directory based on the pattern
         if [ "$PATTERN" = "y-m-d" ]; then
@@ -100,7 +110,7 @@ process_file() {
             local target_dir="$TARGET_BASE_DIR/$year/$month"
         fi
 
-        # Create direcectory
+        # Create directory
         mkdir -p "$target_dir"
         
         local image_base=$(basename "$image")
@@ -117,15 +127,17 @@ process_file() {
         fi
 
         # Handle associated DOP file if exists
-        local imaga_source_dop="$image.dop"
+        local image_source_dop="$image.dop"
         local image_target_dop="$target_dir/$image_base.dop"
-        if [ -f "$imaga_source_dop" ]; then
-            move_target "$imaga_source_dop" "$image_target_dop"
+        if [ -f "$image_source_dop" ]; then
+            move_target "$image_source_dop" "$image_target_dop"
         fi
 
     else
         # Log unprocessable files
-        echo "# File is not an image: \"$image\"" >> "$NOT_MOVE"
+        echo "# File is not an image:" >> "$NOT_MOVE"
+        echo "\"$image\"" >> "$NOT_MOVE"
+        echo "" >> "$NOT_MOVE"
     fi
 }
 
@@ -135,9 +147,13 @@ export -f process_file
 # Initialize log files for actions
 export MOVEFILE=move.sh
 export NOT_MOVE=cannot_move.txt
+FILES_LIST=files.txt
+TEMP_SORT=tmp_sort.txt
 echo -n "" > "$MOVEFILE"
 chmod +x "$MOVEFILE"
 echo -n "" > "$NOT_MOVE"
+echo -n "" > "$FILES_LIST"
+echo -n "" > "$TEMP_SORT"
 
 # Construct find command's string to exclude directories from the search
 EXCLUDE_STRING=""
@@ -180,11 +196,36 @@ fi
 # Optimize processing using available CPU cores
 N_CORES=$(nproc)
 
+# Create a temporary file with filenames with and without path
+echo "List files and search for duplicates..."
+find "$SOURCE_DIR" -type f -not \( -iname "*.xmp" -o -iname "*.dop" \) -print0 | xargs -0 -n 100 -P "$N_CORES" sh -c 'for filepath; do printf "%s\t\"%s\"\n" "$(basename "$filepath")" "$filepath"; done' sh | sort > "$TEMP_SORT"
+
+# Analyze the temporary file for duplicates
+awk -F'\t' '{
+    count[$1]++;
+    line[$1] = line[$1] $2 "\n";
+} END {
+    for (name in count) {
+        if (count[name] > 1) {
+            print "# Duplicates: " > "'"$NOT_MOVE"'";
+            print line[name] > "'"$NOT_MOVE"'";
+        } else {
+            sub(/\n$/, "", line[name]);  # Remove the last newline
+            print line[name] > "'"$FILES_LIST"'";
+        }
+    }
+}' "$TEMP_SORT"
+
 # Use find and xargs to process files in parallel, considering file extensions and exclusions
-eval find "$SOURCE_DIR" $EXCLUDE_STRING -type f $INCLUDE_STRING -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+echo "Analyze the candidates..."
+cat "$FILES_LIST" | xargs -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
 # Summarize and report the outcome
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
-COUNT_NOT_FOUND=$(wc -l < "$NOT_MOVE")
+COUNT_NOT_MOVED=$(wc -l < "$NOT_MOVE") # Todo
 echo "$COUNT_FOUND files found that can be moved (see move.sh)."
-echo "$COUNT_NOT_FOUND files found that cannot be moved (see cannot_move.txt)."
+echo "$COUNT_NOT_MOVED files found that cannot be moved (see cannot_move.txt)."
+
+# Cleanup
+rm "$TEMP_SORT"
+rm "$FILES_LIST"
