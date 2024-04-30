@@ -158,7 +158,7 @@ if [ ! -z "$FILE_EXTENSIONS" ]; then
             INCLUDE_STRING="$INCLUDE_STRING -o -iname '*.$i'"
         done
         # Encloses the exclusion string in parentheses and appends it for the find command
-        INCLUDE_STRING="-type f \( $INCLUDE_STRING \)"
+        INCLUDE_STRING="\( $INCLUDE_STRING \)"
     fi
 fi
 
@@ -172,7 +172,7 @@ fi
 N_CORES=$(nproc)
 
 # Use find and xargs to process files in parallel, considering file extensions and exclusions
-eval find "$SOURCE_DIR" $EXCLUDE_STRING $INCLUDE_STRING -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
+eval find "$SOURCE_DIR" $EXCLUDE_STRING -type f $INCLUDE_STRING -print0 | xargs -0 -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
 # Summarize and report the outcome
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
