@@ -88,7 +88,7 @@ process_file() {
         if [ "$PATTERN" = "y-m-d" ]; then
             local target_dir="$TARGET_BASE_DIR/$year/$month/$day"
         elif [ "$PATTERN" = "y-m" ]; then
-            local target_dir="$TARGET_BASE_DIR/$year/$month/"
+            local target_dir="$TARGET_BASE_DIR/$year/$month"
         fi
 
         # Create direcectory
