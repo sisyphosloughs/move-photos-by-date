@@ -69,10 +69,19 @@ process_file() {
 
     # Function to decide whether to move a file or log it as existing/not movable
     move_target(){
-        if [ -f "$2" ]; then
-            echo "# File exists in target: \"$1\"" >> "$NOT_MOVE"
+        local source_file_path="$1"         # Full path of the source file
+        local target_file_path="$2"         # Full path of the target file
+        local filename=$(basename "$2")     # Remove the path from $2 and only keep the filename
+
+        if [ -f "$target_file_path" ]; then
+            # Check if the file exists at the target
+            echo "# File already exists at target: \"$source_file_path\"" >> "$NOT_MOVE"
+        elif grep -qw "$target_file_path" "$MOVEFILE"; then
+            # Check if the full target path is already listed in the move file, using the source file path in the message
+            echo "# Source file already listed: \"$source_file_path\"" >> "$NOT_MOVE"
         else
-            echo "mv \"$1\" \"$2\"" >> "$MOVEFILE"
+            # If neither condition is met, write the move command to $MOVEFILE
+            echo "mv \"$source_file_path\" \"$target_file_path\"" >> "$MOVEFILE"
         fi
     }
 
@@ -178,4 +187,4 @@ eval find "$SOURCE_DIR" $EXCLUDE_STRING -type f $INCLUDE_STRING -print0 | xargs 
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
 COUNT_NOT_FOUND=$(wc -l < "$NOT_MOVE")
 echo "$COUNT_FOUND files found that can be moved (see move.sh)."
-echo "$COUNT_NOT_FOUND files found that cannot be moved (see cannot_move.sh)."
+echo "$COUNT_NOT_FOUND files found that cannot be moved (see cannot_move.txt)."
