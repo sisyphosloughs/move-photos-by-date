@@ -4,6 +4,7 @@ This script sorts photos into folders organized by their [Exif](#what-is-Exif-da
 
 Features:
 
+- Does not move files automatically; you review the candidates for new organization.
 - Allows for organizing photos into a new or existing folder.
 - Organizes photos into year, month, and optionally day folders. Example:
     - Year and month folders (`y-m` the pattern): `/your-folder/Pictures/2024/03`.
@@ -12,7 +13,7 @@ Features:
 - Optional exclusion of folders.
 - Also moves XMP and DOP [Sidecar](#what-are-sidecar-files) files.
 - Excludes images and sidecar files that are already present in the target folder.
-- Does not move files automatically; you review the candidates for new organization.
+- Excludes images and sidecar files that are already listed as candidate for moving.
 
 ## Requirements
 
