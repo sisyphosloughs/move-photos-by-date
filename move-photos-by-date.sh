@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# TODOs:
-# - Manage errors inputs and parameters
-
 # This script organizes images into directories based on their EXIF creation date.
 # See README.md.
 
