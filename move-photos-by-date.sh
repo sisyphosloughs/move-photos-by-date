@@ -95,16 +95,20 @@ process_file() {
     # Extract EXIF creation date and organize based on the pattern
     if exiftool "$image_source" &> /dev/null; then
 
-        # Extract the original date the photo was taken from its metadata (year, month, day) and store these values in variables.
-        read year month day <<< $(exiftool -d "%Y %m %d" -DateTimeOriginal "$image_source" | awk '/Date\/Time Original/ {print $4, $5, $6}')   
+        # Try to extract the original date the photo was taken from its metadata (year, month, day) using DateTimeOriginal
+        read year month day <<< $(exiftool -d "%Y %m %d" -m -DateTimeOriginal "$image_source" | awk '/Date\/Time Original/ {print $4, $5, $6}')
         
         # Check if the year variable has a value
         if [ -z "$year" ]; then
-            # If year is empty, log the error with the image filename to a file and exit the function
-            echo "# No creation date found:" >> $NOT_MOVE
-            echo "\"$image_source\"" >> $NOT_MOVE
-            echo "" >> $NOT_MOVE
-            return
+            # If year is empty, try CreationDate tag
+            read year month day <<< $(exiftool -d "%Y %m %d" -m -CreationDate "$image_source" | awk '/Creation Date/ {print $4, $5, $6}')
+            
+            # Check again if the year variable has a value
+            if [ -z "$year" ]; then
+                # If still no year, log the error with the image filename to a file
+                echo -e "# No creation date found:\n\"$image_source\\n" >> $NOT_MOVE
+                return
+            fi
         fi
 
         # Create target directory based on the pattern
@@ -201,7 +205,7 @@ echo "Analyzing source directory \"$SOURCE_DIR\"..."
 TOTAL_FILES=$(find $SOURCE_DIR -type f | wc -l)
 
 # Display number of total files in folder
-echo "$TOTAL_FILES Total files"
+echo "$TOTAL_FILES total files"
 
 # Initialize the array for the files
 FILES_FILTERED=()
