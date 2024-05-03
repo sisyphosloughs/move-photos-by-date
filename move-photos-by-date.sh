@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# TODOs:
+# Manage erroneous inputs and parameters
+
 # This script organizes images into directories based on their EXIF creation date.
 
 # Initialize variables
@@ -59,9 +62,9 @@ if ! command -v exiftool &> /dev/null; then
     exit 1
 fi
 
-# Defines a function to process a single image file
+# Define a function to process a single image file
 process_file() {
-    # Ensures a file path is provided
+    # Ensure a file path is provided
     if [ $# -eq 0 ]; then
         echo "Error: No file path provided."
         return 1
@@ -85,20 +88,20 @@ process_file() {
         fi
     }
 
-    local image=$1
+    local image_source=$1
     local year month day
 
     # Extract EXIF creation date and organize based on the pattern
-    if exiftool "$image" &> /dev/null; then
+    if exiftool "$image_source" &> /dev/null; then
 
         # Extract the original date the photo was taken from its metadata (year, month, day) and store these values in variables.
-        read year month day <<< $(exiftool -d "%Y %m %d" -DateTimeOriginal "$image" | awk '/Date\/Time Original/ {print $4, $5, $6}')   
+        read year month day <<< $(exiftool -d "%Y %m %d" -DateTimeOriginal "$image_source" | awk '/Date\/Time Original/ {print $4, $5, $6}')   
         
         # Check if the year variable has a value
         if [ -z "$year" ]; then
             # If year is empty, log the error with the image filename to a file and exit the function
             echo "# No creation date found:" >> $NOT_MOVE
-            echo "\"$image\"" >> $NOT_MOVE
+            echo "\"$image_source\"" >> $NOT_MOVE
             echo "" >> $NOT_MOVE
             return
         fi
@@ -111,23 +114,23 @@ process_file() {
         fi
 
         # Create directory
-        mkdir -p "$target_dir"
+        # mkdir -p "$target_dir"
         
-        local image_base=$(basename "$image")
+        local image_base=$(basename "$image_source")
         local image_target="$target_dir/$image_base"
 
         # Attempt to move the image file
-        move_target "$image" "$image_target"
+        move_target "$image_source" "$image_target"
 
         # Handle associated XMP file if exists
-        local image_source_xmp="${image%.*}.xmp"
+        local image_source_xmp="${image_source%.*}.xmp"
         local image_target_xmp="$target_dir/${image_base%.*}.xmp"
         if [ -f "$image_source_xmp" ]; then
             move_target "$image_source_xmp" "$image_target_xmp"
         fi
 
         # Handle associated DOP file if exists
-        local image_source_dop="$image.dop"
+        local image_source_dop="$image_source.dop"
         local image_target_dop="$target_dir/$image_base.dop"
         if [ -f "$image_source_dop" ]; then
             move_target "$image_source_dop" "$image_target_dop"
@@ -135,9 +138,7 @@ process_file() {
 
     else
         # Log unprocessable files
-        echo "# File is not an image:" >> "$NOT_MOVE"
-        echo "\"$image\"" >> "$NOT_MOVE"
-        echo "" >> "$NOT_MOVE"
+        echo -e "# File is not an image:\n\"$image_source\"\n" >> "$NOT_MOVE"
     fi
 }
 
@@ -148,43 +149,41 @@ export -f process_file
 export MOVEFILE=move.sh
 export NOT_MOVE=cannot_move.txt
 FILES_LIST=files.txt
-TEMP_SORT=tmp_sort.txt
 echo -n "" > "$MOVEFILE"
 chmod +x "$MOVEFILE"
 echo -n "" > "$NOT_MOVE"
 echo -n "" > "$FILES_LIST"
-echo -n "" > "$TEMP_SORT"
 
 # Construct find command's string to exclude directories from the search
-EXCLUDE_STRING=""
+EXCLUDE_DIR=""
 if [ ! -z "$EXCLUDE_DIRS" ]; then
     IFS=',' read -ra ADDR <<< "$EXCLUDE_DIRS" # Splits the EXCLUDE_DIRS variable into an array
     if [ ${#ADDR[@]} -gt 0 ]; then
         # Constructs the exclusion string for find, starting with the first directory
-        EXCLUDE_STRING="-name '${ADDR[0]}'"
+        EXCLUDE_DIR="-not -path \"*/${ADDR[0]}/*\""
         for i in "${ADDR[@]:1}"; do
             # Adds additional directories to the exclusion
-            EXCLUDE_STRING="$EXCLUDE_STRING -o -name '$i'"
+            EXCLUDE_DIR="$EXCLUDE_DIR -not -path \"*/$i/*\""
         done
-        # Encloses the exclusion string in parentheses and appends it for the find command
-        EXCLUDE_STRING="-type d \( $EXCLUDE_STRING \) -prune -o"
     fi
 fi
 
 # Construct find command's include string for file extensions
-INCLUDE_STRING=""
+FILE_TYPES=""
 if [ ! -z "$FILE_EXTENSIONS" ]; then
     IFS=',' read -ra ADDR <<< "$FILE_EXTENSIONS" # Splits the FILE_EXTENSIONS variable into an array
     if [ ${#ADDR[@]} -gt 0 ]; then
-        # Constructs the exclusion string for find, starting with the first directory
-        INCLUDE_STRING="-iname '*.${ADDR[0]}'"
+        # Constructs the inclusion string for find, starting with the first directory
+        FILE_TYPES="-iname \"*.${ADDR[0]}\""
         for i in "${ADDR[@]:1}"; do
-            # Adds additional directories to the exclusion
-            INCLUDE_STRING="$INCLUDE_STRING -o -iname '*.$i'"
+            # Adds additional directories to the inclusion
+            FILE_TYPES="$FILE_TYPES -o -iname \"*.$i\""
         done
-        # Encloses the exclusion string in parentheses and appends it for the find command
-        INCLUDE_STRING="\( $INCLUDE_STRING \)"
+        # Encloses the inclusion string in parentheses and appends it for the find command
+        FILE_TYPES="\( $FILE_TYPES \)"
     fi
+else
+    FILE_TYPES=" -not \( -iname \"*.xmp\" -o -iname \"*.dop\" \)"
 fi
 
 # Validate source directory existence
@@ -196,36 +195,84 @@ fi
 # Optimize processing using available CPU cores
 N_CORES=$(nproc)
 
-# Create a temporary file with filenames with and without path
-echo "List files and search for duplicates..."
-find "$SOURCE_DIR" -type f -not \( -iname "*.xmp" -o -iname "*.dop" \) -print0 | xargs -0 -n 100 -P "$N_CORES" sh -c 'for filepath; do printf "%s\t\"%s\"\n" "$(basename "$filepath")" "$filepath"; done' sh | sort > "$TEMP_SORT"
+# Inform user
+echo "Analyzing source directory \"$SOURCE_DIR\"..."
+TOTAL_FILES=$(find $SOURCE_DIR -type f | wc -l)
+
+# Display number of total files in folder
+echo "$TOTAL_FILES Total files"
+
+# Initialize the array for the files
+FILES_FILTERED=()
+while IFS= read -r line; do
+    FILES_FILTERED+=("$line")
+done < <(eval "find $SOURCE_DIR -type f $FILE_TYPES $EXCLUDE_DIR")
+unset IFS
+
+# Initialize an array for the sorted files
+FILES_FILTERED_SORTED=() 
+while IFS= read -r line; do
+    FILES_FILTERED_SORTED+=("$line")
+done < <(printf "%s\n" "${FILES_FILTERED[@]}" | sort)
+unset IFS
+unset FILES_FILTERED
+COUNT_FILTERED_FILES=${#FILES_FILTERED_SORTED[@]}
+
+# Create an array with basenames
+SORTED_FILES_WITH_BASENAMES=()
+for fullpath in "${FILES_FILTERED_SORTED[@]}"; do
+    # Extract the filename without path
+    filename="${fullpath##*/}"  # Removes everything up to the last '/'
+    # Add the filename and the full path to the array
+    SORTED_FILES_WITH_BASENAMES+=("$filename"$'\t'"$fullpath")
+done
+unset FILES_FILTERED_SORTED
 
 # Analyze the temporary file for duplicates
 awk -F'\t' '{
     count[$1]++;
-    line[$1] = line[$1] $2 "\n";
+    line[$1] = line[$1] "\"" $2 "\"\n";  # Add quotes around each line
 } END {
     for (name in count) {
         if (count[name] > 1) {
-            print "# Duplicates: " > "'"$NOT_MOVE"'";
-            print line[name] > "'"$NOT_MOVE"'";
+            print "# Duplicates:" > "'"$NOT_MOVE"'";
+            print line[name] > "'"$NOT_MOVE"'";  # Output with quotes around each line
         } else {
             sub(/\n$/, "", line[name]);  # Remove the last newline
             print line[name] > "'"$FILES_LIST"'";
         }
     }
-}' "$TEMP_SORT"
+}' < <(printf "%s\n" "${SORTED_FILES_WITH_BASENAMES[@]}")
+unset SORTED_FILES_WITH_BASENAMES
+
+# Count number of duplicate and unique files
+COUNT_DUPLICATE_FILES=$(grep -c '^"' $NOT_MOVE)
+COUNT_UNIQUE_FILES=$(grep -c '^"' $FILES_LIST)
 
 # Use find and xargs to process files in parallel, considering file extensions and exclusions
-echo "Analyze the candidates..."
+echo "Analyzing the candidates..."
 cat "$FILES_LIST" | xargs -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
-# Summarize and report the outcome
-COUNT_FOUND=$(wc -l < "$MOVEFILE")
-COUNT_NOT_MOVED=$(wc -l < "$NOT_MOVE") # Todo
-echo "$COUNT_FOUND files found that can be moved (see move.sh)."
-echo "$COUNT_NOT_MOVED files found that cannot be moved (see cannot_move.txt)."
+# Report summary for the source directory
+echo "Summary for source files ($SOURCE_DIR):"
+echo "-------------------------------------"
+printf "%8s total files\n" "$TOTAL_FILES"
+printf "%8s filtered files\n" "$COUNT_FILTERED_FILES"
+printf "%8s duplicate files\n" "$COUNT_DUPLICATE_FILES"
+printf "%8s unique files\n" "$COUNT_UNIQUE_FILES"
 
-# Cleanup
-rm "$TEMP_SORT"
-rm "$FILES_LIST"
+# Count and report files not fitting the criteria
+COUNT_NOT_AN_IMAGE=$(grep -c 'File is not an image' $NOT_MOVE)
+COUNT_NO_CREATION_DATE=$(grep -c 'No creation date' $NOT_MOVE)
+echo "-------------------------------------"
+echo "Files not fitting criteria:"
+printf "%8s files are not an image (see cannot_move.txt)\n" "$COUNT_NOT_AN_IMAGE"
+printf "%8s files have no creation date (see cannot_move.txt)\n" "$COUNT_NO_CREATION_DATE"
+
+# Report comparison with target directory
+echo -e "\nResults from comparison with target directory ($TARGET_BASE_DIR):"
+echo "------------------------------------------------------------------"
+COUNT_FOUND=$(wc -l < "$MOVEFILE")
+COUNT_EXISTS_IN_TARGET=$(grep -c 'File already exists at target' $NOT_MOVE)
+printf "%8s files found that can be moved (see move.sh)\n" "$COUNT_FOUND"
+printf "%8s files exist in target moved (see cannot_move.txt)\n" "$COUNT_EXISTS_IN_TARGET"
