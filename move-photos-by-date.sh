@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # TODOs:
-# Manage erroneous inputs and parameters
+# - Manage errors inputs and parameters
+# - get craation date from MOV files
 
 # This script organizes images into directories based on their EXIF creation date.
 
@@ -201,8 +202,6 @@ TOTAL_FILES=$(find $SOURCE_DIR -type f | wc -l)
 
 # Display number of total files in folder
 echo "$TOTAL_FILES Total files"
-
-echo "find $SOURCE_DIR -type f $FILE_TYPES $EXCLUDE_DIR"
 
 # Initialize the array for the files
 FILES_FILTERED=()
