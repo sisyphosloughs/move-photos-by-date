@@ -202,6 +202,8 @@ TOTAL_FILES=$(find $SOURCE_DIR -type f | wc -l)
 # Display number of total files in folder
 echo "$TOTAL_FILES Total files"
 
+echo "find $SOURCE_DIR -type f $FILE_TYPES $EXCLUDE_DIR"
+
 # Initialize the array for the files
 FILES_FILTERED=()
 while IFS= read -r line; do
@@ -253,26 +255,22 @@ COUNT_UNIQUE_FILES=$(grep -c '^"' $FILES_LIST)
 echo "Analyzing the candidates..."
 cat "$FILES_LIST" | xargs -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
-# Report summary for the source directory
+# Summarize and report the outcome
 echo "Summary for source files ($SOURCE_DIR):"
-echo "-------------------------------------"
 printf "%8s total files\n" "$TOTAL_FILES"
 printf "%8s filtered files\n" "$COUNT_FILTERED_FILES"
 printf "%8s duplicate files\n" "$COUNT_DUPLICATE_FILES"
 printf "%8s unique files\n" "$COUNT_UNIQUE_FILES"
 
-# Count and report files not fitting the criteria
-COUNT_NOT_AN_IMAGE=$(grep -c 'File is not an image' $NOT_MOVE)
-COUNT_NO_CREATION_DATE=$(grep -c 'No creation date' $NOT_MOVE)
-echo "-------------------------------------"
-echo "Files not fitting criteria:"
+COUNT_NOT_AN_IMAGE=$(grep -c 'File is not an image' $NOT_MOVE) 
 printf "%8s files are not an image (see cannot_move.txt)\n" "$COUNT_NOT_AN_IMAGE"
+
+COUNT_NO_CREATION_DATE=$(grep -c 'No creation date' $NOT_MOVE)
 printf "%8s files have no creation date (see cannot_move.txt)\n" "$COUNT_NO_CREATION_DATE"
 
-# Report comparison with target directory
 echo -e "\nResults from comparison with target directory ($TARGET_BASE_DIR):"
-echo "------------------------------------------------------------------"
 COUNT_FOUND=$(wc -l < "$MOVEFILE")
-COUNT_EXISTS_IN_TARGET=$(grep -c 'File already exists at target' $NOT_MOVE)
 printf "%8s files found that can be moved (see move.sh)\n" "$COUNT_FOUND"
+
+COUNT_EXISTS_IN_TARGET=$(grep -c 'File already exists at target' $NOT_MOVE) 
 printf "%8s files exist in target moved (see cannot_move.txt)\n" "$COUNT_EXISTS_IN_TARGET"
