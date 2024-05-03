@@ -2,9 +2,9 @@
 
 # TODOs:
 # - Manage errors inputs and parameters
-# - get craation date from MOV files
 
 # This script organizes images into directories based on their EXIF creation date.
+# See README.md.
 
 # Initialize variables
 TARGET_BASE_DIR=""
