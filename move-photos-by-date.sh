@@ -81,8 +81,8 @@ process_file() {
             echo "\"$target_file_path\" # target" >> "$NOT_MOVE"
             echo "" >> "$NOT_MOVE"
         else
-            # If neither condition is met, write the move command to $MOVEFILE
-            echo "mv \"$source_file_path\" \"$target_file_path\"" >> "$MOVEFILE"
+            # If neither condition is met, write the move command to $MOVE_TMP
+            echo "mv \"$source_file_path\" \"$target_file_path\"" >> "$MOVE_TMP"
         fi
     }
 
@@ -148,13 +148,16 @@ process_file() {
 export -f process_file
 
 # Initialize log files for actions
-export MOVEFILE=move.sh
+export MOVE_TMP=move.txt
+export MOVEEXE=move.sh
 export NOT_MOVE=cannot_move.txt
 FILES_LIST=files.txt
-echo -n "" > "$MOVEFILE"
-chmod +x "$MOVEFILE"
+MOVE_TMP_DIR_LIST=directory_list.txt
+echo -n "" > "$MOVE_TMP"
+chmod +x "$MOVE_TMP"
 echo -n "" > "$NOT_MOVE"
 echo -n "" > "$FILES_LIST"
+echo -n "" > "$MOVE_TMP_DIR_LIST"
 
 # Construct find command's string to exclude directories from the search
 EXCLUDE_DIR=""
@@ -196,6 +199,10 @@ fi
 
 # Optimize processing using available CPU cores
 N_CORES=$(nproc)
+
+###############
+## Analyze source directory
+###############
 
 # Inform user
 echo "Analyzing source directory \"$SOURCE_DIR\"..."
@@ -251,11 +258,33 @@ unset SORTED_FILES_WITH_BASENAMES
 COUNT_DUPLICATE_FILES=$(grep -c '^"' $NOT_MOVE)
 COUNT_UNIQUE_FILES=$(grep -c '^"' $FILES_LIST)
 
-# Use find and xargs to process files in parallel, considering file extensions and exclusions
+###############
+## Use find and xargs to process files in parallel, considering file extensions and exclusions
+###############
 echo "Analyzing the candidates..."
 cat "$FILES_LIST" | xargs -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 
-# Summarize and report the outcome
+###############
+## Create commands for target directories
+###############
+
+# Read the last column of each row, extract the directory path, and save these in a temporary file
+awk -F'" "' '{ gsub(/"/, "", $2); print $2 }' "$MOVE_TMP" | sed -E 's/(.*\/)[^\/]*$/\1/' | sort -u > "$MOVE_TMP_DIR_LIST"
+
+# Create the directories
+while read -r directory; do
+    echo "mkdir -p \"$directory\""
+done < $MOVE_TMP_DIR_LIST > "$MOVEEXE"
+
+# Create a new file that contains both the mkdir commands and the original mv commands
+cat /tmp/mkdir_commands.txt "$MOVE_TMP" > "$MOVEEXE"
+
+# Replace the original MOVE_TMP with the new file
+mv /tmp/new_MOVE_TMP.sh "$MOVE_TMP"
+
+###############
+## Summarize and report the outcome
+###############
 echo "Summary for source files ($SOURCE_DIR):"
 printf "%8s total files\n" "$TOTAL_FILES"
 printf "%8s filtered files\n" "$COUNT_FILTERED_FILES"
@@ -269,7 +298,8 @@ COUNT_NO_CREATION_DATE=$(grep -c 'No creation date' $NOT_MOVE)
 printf "%8s files have no creation date (see cannot_move.txt)\n" "$COUNT_NO_CREATION_DATE"
 
 echo -e "\nResults from comparison with target directory ($TARGET_BASE_DIR):"
-COUNT_FOUND=$(wc -l < "$MOVEFILE")
+
+COUNT_FOUND=$(grep -c 'mv ' $MOVEEXE)
 printf "%8s files found that can be moved (see move.sh)\n" "$COUNT_FOUND"
 
 COUNT_EXISTS_IN_TARGET=$(grep -c 'File already exists at target' $NOT_MOVE) 
