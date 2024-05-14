@@ -103,7 +103,7 @@ process_file() {
             # Check again if the year variable has a value
             if [ -z "$year" ]; then
                 # If still no year, log the error with the image filename to a file
-                echo -e "# No creation date found:\n\"$image_source\\n" >> $NOT_MOVE
+                echo -e "# No creation date found:\n\"$image_source\"\\n" >> $NOT_MOVE
                 return
             fi
         fi
@@ -129,6 +129,13 @@ process_file() {
         local image_target_xmp="$target_dir/${image_base%.*}.xmp"
         if [ -f "$image_source_xmp" ]; then
             move_target "$image_source_xmp" "$image_target_xmp"
+        fi
+
+        # Handle associated afphoto file if exists
+        local image_source_afphoto="${image_source%.*}.afphoto"
+        local image_target_afphoto="$target_dir/${image_base%.*}.afphoto"
+        if [ -f "$image_source_afphoto" ]; then
+            move_target "$image_source_afphoto" "$image_target_afphoto"
         fi
 
         # Handle associated DOP file if exists
@@ -188,7 +195,8 @@ if [ ! -z "$FILE_EXTENSIONS" ]; then
         FILE_TYPES="\( $FILE_TYPES \)"
     fi
 else
-    FILE_TYPES=" -not \( -iname \"*.xmp\" -o -iname \"*.dop\" \)"
+    # Extensions
+    FILE_TYPES=" -not \( -iname \"*.xmp\" -o -iname \"*.dop\" -o -iname \"*.afphoto\" \)"
 fi
 
 # Validate source directory existence
