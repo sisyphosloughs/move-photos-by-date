@@ -69,7 +69,7 @@ process_file() {
     fi
 
     # Function to decide whether to move a file or log it as existing/not movable
-    move_target(){
+    move_target() {
         local source_file_path="$1"         # Full path of the source file
         local target_file_path="$2"         # Full path of the target file
         local filename=$(basename "$2")     # Remove the path from $2 and only keep the filename
@@ -114,9 +114,6 @@ process_file() {
         elif [ "$PATTERN" = "y-m" ]; then
             local target_dir="$TARGET_BASE_DIR/$year/$month"
         fi
-
-        # Create directory
-        # mkdir -p "$target_dir"
         
         local image_base=$(basename "$image_source")
         local image_target="$target_dir/$image_base"
@@ -277,18 +274,10 @@ cat "$FILES_LIST" | xargs -P "$N_CORES" -I {} bash -c 'process_file "$@"' _ {}
 ###############
 
 # Read the last column of each row, extract the directory path, and save these in a temporary file
-awk -F'" "' '{ gsub(/"/, "", $2); print $2 }' "$MOVE_TMP" | sed -E 's/(.*\/)[^\/]*$/\1/' | sort -u > "$MOVE_TMP_DIR_LIST"
-
-# Create the directories
-while read -r directory; do
-    echo "mkdir -p \"$directory\""
-done < $MOVE_TMP_DIR_LIST > "$MOVEEXE"
+awk -F'" "' '{ gsub(/"/, "", $2); print $2 }' "$MOVE_TMP" | sed -E 's/(.*\/)[^\/]*$/mkdir -p "\1"/' | sort -u > "$MOVEEXE"
 
 # Create a new file that contains both the mkdir commands and the original mv commands
-cat /tmp/mkdir_commands.txt "$MOVE_TMP" > "$MOVEEXE"
-
-# Replace the original MOVE_TMP with the new file
-mv /tmp/new_MOVE_TMP.sh "$MOVE_TMP"
+cat /tmp/mkdir_commands.txt "$MOVE_TMP" >> "$MOVEEXE"
 
 ###############
 ## Summarize and report the outcome
@@ -308,7 +297,7 @@ printf "%8s files have no creation date (see cannot_move.txt)\n" "$COUNT_NO_CREA
 echo -e "\nResults from comparison with target directory ($TARGET_BASE_DIR):"
 
 COUNT_FOUND=$(grep -c 'mv ' $MOVEEXE)
-printf "%8s files found that can be moved (see move.sh)\n" "$COUNT_FOUND"
+printf "%8s files found that can be moved, images and with ding sidecar files (see move.sh)\n" "$COUNT_FOUND"
 
 COUNT_EXISTS_IN_TARGET=$(grep -c 'File already exists at target' $NOT_MOVE) 
 printf "%8s files exist in target moved (see cannot_move.txt)\n" "$COUNT_EXISTS_IN_TARGET"
