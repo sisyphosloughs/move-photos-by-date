@@ -10,6 +10,9 @@ PATTERN=""
 EXCLUDE_DIRS=""
 FILE_EXTENSIONS=""
 
+# Determine the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+
 # Define option string for getopts
 OPTSTRING=":t:s:p:e:f:"
 
@@ -278,6 +281,9 @@ awk -F'" "' '{ gsub(/"/, "", $2); print $2 }' "$MOVE_TMP" | sed -E 's/(.*\/)[^\/
 
 # Create a new file that contains both the mkdir commands and the original mv commands
 cat /tmp/mkdir_commands.txt "$MOVE_TMP" >> "$MOVEEXE"
+
+# Make script executable
+chmod +x "$MOVEEXE"
 
 ###############
 ## Summarize and report the outcome
